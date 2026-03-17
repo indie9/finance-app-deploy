@@ -3,24 +3,46 @@ import type { Transaction, TransactionCreatePayload } from '~/types/transaction'
 
 export const transactionsQueryKey = ['transactions'] as const
 
-const OPTIMISTIC_ID_PREFIX = 'opt-'
-
-export function useTransactions() {
-  return useQuery({
-    queryKey: transactionsQueryKey,
-    queryFn: () => $fetch<Transaction[]>('/api/transactions'),
-  })
+export type TransactionsParams = {
+  page?: number
+  limit?: number
+  sortBy?: 'date' | 'amount' | 'description' | 'category' | 'type'
+  sortOrder?: 'asc' | 'desc'
+  category?: string
 }
 
-/** Проверяет, что транзакция добавлена оптимистично (ещё без ответа сервера). */
-export function isOptimisticTransaction(t: Transaction): boolean {
-  return t.id.startsWith(OPTIMISTIC_ID_PREFIX)
+export type TransactionsResponse = {
+  data: Transaction[]
+  total: number
+}
+
+export function useTransactions(params: TransactionsParams = {}) {
+  return useQuery({
+    queryKey: computed(() => [
+      ...transactionsQueryKey,
+      params.page ?? 1,
+      params.limit ?? 10,
+      params.sortBy ?? 'date',
+      params.sortOrder ?? 'desc',
+      params.category ?? '',
+    ]),
+    queryFn: () =>
+      $fetch<TransactionsResponse>('/api/transactions', {
+        params: {
+          page: params.page ?? 1,
+          limit: params.limit ?? 10,
+          sortBy: params.sortBy ?? 'date',
+          sortOrder: params.sortOrder ?? 'desc',
+          category: params.category || undefined,
+        },
+      }),
+  })
 }
 
 export function useAddTransaction() {
   const queryClient = useQueryClient()
 
-  const mutation = useMutation({
+  return useMutation({
     mutationFn: (payload: TransactionCreatePayload) =>
       $fetch<Transaction>('/api/transactions', {
         method: 'POST',
@@ -30,32 +52,8 @@ export function useAddTransaction() {
           description: payload.description ?? undefined,
         },
       }),
-    onMutate: async (payload) => {
-      await queryClient.cancelQueries({ queryKey: transactionsQueryKey })
-      const previousData = queryClient.getQueryData<Transaction[]>(transactionsQueryKey)
-      const optimistic: Transaction = {
-        id: `${OPTIMISTIC_ID_PREFIX}${Date.now()}`,
-        user_id: '',
-        amount: payload.amount,
-        type: payload.type,
-        category: payload.category,
-        date: payload.date ?? new Date().toISOString(),
-        description: payload.description ?? '',
-      }
-      queryClient.setQueryData<Transaction[]>(transactionsQueryKey, (old) =>
-        old ? [optimistic, ...old] : [optimistic]
-      )
-      return { previousData }
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousData !== undefined) {
-        queryClient.setQueryData(transactionsQueryKey, context.previousData)
-      }
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionsQueryKey })
     },
   })
-
-  return mutation
 }

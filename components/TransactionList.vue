@@ -11,8 +11,7 @@
       :class="[
         tx.type === 'income'
           ? 'border-l-4 border-l-emerald-500 bg-emerald-50/50'
-          : 'border-l-4 border-l-rose-500 bg-rose-50/50',
-        isOptimisticTransaction(tx) && 'transaction-item--optimistic'
+          : 'border-l-4 border-l-rose-500 bg-rose-50/50'
       ]"
     >
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -50,13 +49,6 @@
         >
           {{ tx.description }}
         </span>
-        <span
-          v-if="isOptimisticTransaction(tx)"
-          class="text-xs text-slate-400"
-          title="Сохраняется на сервере"
-        >
-          Сохраняется…
-        </span>
       </div>
     </li>
   </TransitionGroup>
@@ -64,7 +56,6 @@
 
 <script setup lang="ts">
 import type { Transaction } from '~/types/transaction'
-import { isOptimisticTransaction } from '~/composables/useTransactions'
 
 defineProps<{
   transactions: Transaction[]
@@ -87,15 +78,5 @@ const { formatDate, formatAmount } = useFormatters()
 
 .list-move {
   transition: transform 0.25s ease;
-}
-
-.transaction-item--optimistic {
-  opacity: 0.92;
-  animation: optimistic-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes optimistic-pulse {
-  0%, 100% { opacity: 0.92; }
-  50% { opacity: 1; }
 }
 </style>

@@ -14,8 +14,8 @@
     <TransactionModal v-model="showTransactionModal" />
 
     <div class="stats">
-      <span class="stat">Транзакций: {{ transactions.length }}</span>
-      <span class="stat">Баланс: {{ formatAmount(totalBalance) }}</span>
+      <span class="stat">Транзакций: {{ total }}</span>
+      <span class="stat">Баланс на странице: {{ formatAmount(totalBalance) }}</span>
     </div>
 
     <div class="toolbar">
@@ -33,31 +33,34 @@
       </button>
     </div>
 
-    <Transition name="content" mode="out-in">
-      <div v-if="status === 'pending'" key="loading" class="skeleton-wrap">
-        <p class="skeleton-caption">Загрузка транзакций...</p>
-        <ul class="skeleton-list">
-          <li v-for="i in 5" :key="i" class="skeleton-item">
-            <span class="skeleton-line skeleton-line--short" />
-            <span class="skeleton-line skeleton-line--mid" />
-            <span class="skeleton-line skeleton-line--amount" />
-          </li>
-        </ul>
-      </div>
+    <TransactionTable
+      :transactions="transactions"
+      :total="total"
+      :page="params.page"
+      :limit="params.limit"
+      :sort-by="params.sortBy"
+      :sort-order="params.sortOrder"
+      :category-filter="params.category"
+      :loading="isFetching"
+      @update:page="params.page = $event"
+      @update:sort-by="params.sortBy = $event"
+      @update:sort-order="params.sortOrder = $event"
+      @update:category-filter="params.category = $event"
+      @update:limit="params.limit = $event"
+    />
 
-      <div v-else-if="status === 'error'" key="error" class="state-card state-card--error">
+    <Transition name="content" mode="out-in">
+      <div v-if="status === 'error'" key="error" class="state-card state-card--error">
         <p>Не удалось загрузить транзакции.</p>
         <button type="button" class="retry-btn" @click="refetch()">
           Повторить
         </button>
       </div>
 
-      <div v-else-if="transactions.length === 0" key="empty" class="state-card">
+      <div v-else-if="!isFetching && transactions.length === 0" key="empty" class="state-card">
         <p>Пока нет транзакций.</p>
         <p class="state-card__hint">Нажмите «Добавить транзакцию», чтобы создать первую.</p>
       </div>
-
-      <TransactionList v-else key="list" :transactions="transactions" />
     </Transition>
   </section>
 </template>
@@ -70,10 +73,17 @@ definePageMeta({
 const showTransactionModal = ref(false)
 const transactionStore = useTransactionStore()
 
-const query = useTransactions()
+const params = reactive({
+  page: 1,
+  limit: 10,
+  sortBy: 'date' as 'date' | 'amount' | 'description' | 'category' | 'type',
+  sortOrder: 'desc' as 'asc' | 'desc',
+  category: '',
+})
 
-// Локальные refs, синхронизируемые с query — гарантируют обновление UI при навигации (refs из useQuery иногда не триггерят ре-рендер).
-const data = ref(query.data.value)
+const query = useTransactions(params)
+
+const data = ref<{ data: import('~/types/transaction').Transaction[]; total: number } | undefined>(query.data.value)
 const isError = ref(query.isError.value)
 const isPending = ref(query.isPending.value)
 
@@ -81,7 +91,7 @@ watch(
   () => query.data.value,
   (v) => {
     data.value = v
-    if (v != null) transactionStore.setTransactions(v)
+    if (v?.data != null) transactionStore.setTransactions(v.data)
   },
   { immediate: true, flush: 'sync' }
 )
@@ -90,7 +100,8 @@ watch(() => query.isPending.value, (v) => { isPending.value = v }, { flush: 'syn
 
 const { isFetching, refetch } = query
 
-const transactions = computed(() => data.value ?? [])
+const transactions = computed(() => data.value?.data ?? [])
+const total = computed(() => data.value?.total ?? 0)
 
 const totalBalance = computed(() =>
   transactions.value.reduce(
@@ -99,7 +110,6 @@ const totalBalance = computed(() =>
   )
 )
 
-// Показываем контент, как только есть данные. Скелетон — только пока нет данных и идёт загрузка.
 const status = computed(() => {
   if (data.value !== undefined) return 'success'
   if (isError.value) return 'error'
@@ -231,53 +241,6 @@ const { formatAmount } = useFormatters()
 
 .retry-btn:hover {
   background: #fee2e2;
-}
-
-/* Progressive loading skeleton */
-.skeleton-wrap {
-  padding: 0;
-}
-
-.skeleton-caption {
-  margin-bottom: 1rem;
-  color: #64748b;
-  font-size: 0.9rem;
-}
-
-.skeleton-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.skeleton-item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-}
-
-.skeleton-line {
-  height: 0.875rem;
-  border-radius: 0.25rem;
-  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.2s ease-in-out infinite;
-}
-
-.skeleton-line--short { width: 5rem; }
-.skeleton-line--mid { width: 8rem; flex-grow: 1; }
-.skeleton-line--amount { width: 4rem; margin-left: auto; }
-
-@keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
- 100% { background-position: -200% 0; }
 }
 
 /* Content transitions */

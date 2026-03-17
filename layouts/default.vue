@@ -13,8 +13,7 @@
 
         <div class="auth-box">
           <div class="auth-box__user">
-            <span class="auth-box__label">Текущий пользователь</span>
-            <strong>{{ user?.email || 'Гость' }}</strong>
+            <strong>{{ displayName }}</strong>
           </div>
 
           <div class="auth-box__actions">
@@ -45,11 +44,19 @@
 <script setup lang="ts">
 import { useQueryClient } from '@tanstack/vue-query'
 import { transactionsQueryKey } from '~/composables/useTransactions'
-import { profileQueryKey } from '~/composables/useProfile'
+import { profileQueryKey, useProfileQuery } from '~/composables/useProfile'
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const queryClient = useQueryClient()
+
+const { data: profile } = useProfileQuery()
+
+const displayName = computed(() => {
+  if (profile.value?.full_name) return profile.value.full_name
+  if (user.value?.email) return user.value.email
+  return 'Гость'
+})
 
 const handleLogout = async () => {
   queryClient.removeQueries({ queryKey: transactionsQueryKey })
