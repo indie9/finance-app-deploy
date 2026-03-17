@@ -1,10 +1,10 @@
-# Nuxt Minimal Starter 0
+# Nuxt Minimal Starter
 
 Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
 
 ## Setup
 
-Make sure to install dependencies:
+Make sure to install dependenciess:
 
 ```bash
 # npm
