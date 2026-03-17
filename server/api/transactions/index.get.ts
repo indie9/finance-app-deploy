@@ -4,7 +4,11 @@ import type { Transaction } from '~/types/transaction'
 const SORT_FIELDS = ['date', 'amount', 'description', 'category', 'type'] as const
 const DEFAULT_PAGE = 1
 const DEFAULT_LIMIT = 10
-const MAX_LIMIT = 100
+const MAX_LIMIT = 500
+
+function isValidDateStr(s: unknown): s is string {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)
+}
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -20,6 +24,8 @@ export default defineEventHandler(async (event) => {
     : 'date'
   const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc'
   const category = typeof query.category === 'string' ? query.category.trim() : ''
+  const dateFrom = isValidDateStr(query.dateFrom) ? query.dateFrom : undefined
+  const dateTo = isValidDateStr(query.dateTo) ? query.dateTo : undefined
 
   const client = await serverSupabaseClient(event)
   let q = client
@@ -31,6 +37,8 @@ export default defineEventHandler(async (event) => {
     const pattern = `%${category}%`
     q = q.or(`category.ilike.${pattern},description.ilike.${pattern}`)
   }
+  if (dateFrom) q = q.gte('date', dateFrom)
+  if (dateTo) q = q.lte('date', dateTo)
 
   const { data, error, count } = await q
     .order(sortBy, { ascending: sortOrder === 'asc' })

@@ -9,6 +9,8 @@ export type TransactionsParams = {
   sortBy?: 'date' | 'amount' | 'description' | 'category' | 'type'
   sortOrder?: 'asc' | 'desc'
   category?: string
+  dateFrom?: string
+  dateTo?: string
 }
 
 export type TransactionsResponse = {
@@ -25,6 +27,8 @@ export function useTransactions(params: TransactionsParams = {}) {
       params.sortBy ?? 'date',
       params.sortOrder ?? 'desc',
       params.category ?? '',
+      params.dateFrom ?? '',
+      params.dateTo ?? '',
     ]),
     queryFn: () =>
       $fetch<TransactionsResponse>('/api/transactions', {
@@ -34,8 +38,11 @@ export function useTransactions(params: TransactionsParams = {}) {
           sortBy: params.sortBy ?? 'date',
           sortOrder: params.sortOrder ?? 'desc',
           category: params.category || undefined,
+          dateFrom: params.dateFrom || undefined,
+          dateTo: params.dateTo || undefined,
         },
       }),
+    placeholderData: (previousData) => previousData,
   })
 }
 

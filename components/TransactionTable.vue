@@ -1,6 +1,18 @@
 <template>
   <div class="table-wrapper">
     <div class="table-toolbar">
+      <button
+        type="button"
+        class="table-toolbar__refresh"
+        :disabled="loading"
+        :aria-busy="loading"
+        :aria-label="loading ? 'Обновление списка...' : 'Обновить список транзакций'"
+        title="Обновить данные с сервера"
+        @click="emit('refresh')"
+      >
+        <span class="table-toolbar__refresh-icon" aria-hidden="true">⟳</span>
+        <span class="table-toolbar__refresh-text">Обновить данные</span>
+      </button>
       <label class="filter">
         <span class="filter__icon" aria-hidden="true">🔍</span>
         <input
@@ -13,8 +25,12 @@
       </label>
     </div>
 
-    <table class="tx-table" role="grid">
-      <thead>
+    <div class="table-scroll">
+      <div v-if="loading && transactions.length > 0" class="table-preloader" aria-hidden="true">
+        <span class="table-preloader__spinner" />
+      </div>
+      <table class="tx-table" role="grid">
+        <thead>
         <tr>
           <th
             v-for="col in columnIds"
@@ -34,7 +50,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-if="loading" class="tx-row tx-row--loading">
+        <tr v-if="loading && transactions.length === 0" class="tx-row tx-row--loading">
           <td :colspan="columnIds.length" class="tx-empty">
             Загрузка…
           </td>
@@ -64,7 +80,12 @@
           </td>
         </tr>
       </tbody>
-    </table>
+      </table>
+    </div>
+
+    <!--
+      Пагинация временно отключена для работы с графиками на полном наборе данных.
+      Разметка и логика оставлены закомментированными на случай будущего возвращения.
 
     <div v-if="transactions.length > 0" class="pagination">
       <label class="pagination__page-size">
@@ -131,6 +152,7 @@
         Всего {{ total }}
       </span>
     </div>
+    -->
   </div>
 </template>
 
@@ -152,6 +174,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
+  refresh: []
   'update:page': [value: number]
   'update:sort-by': [value: 'date' | 'amount' | 'description' | 'category' | 'type']
   'update:sort-order': [value: 'asc' | 'desc']
@@ -169,6 +192,7 @@ const columnIds = [
   { id: 'type', header: 'Тип', sortable: true },
 ]
 
+// Пагинация временно отключена, но вычисление оставлено на будущее.
 const totalPages = computed(() => Math.max(1, Math.ceil(props.total / props.limit)))
 
 const filterInput = ref(props.categoryFilter)
@@ -186,14 +210,7 @@ watch(filterInput, (value) => {
 })
 
 const pageInput = ref(props.page)
-watch(
-  () => props.page,
-  (v) => {
-    pageInput.value = v
-  }
-)
-
-const pageSizeOptions = [5, 10, 20, 50]
+// const pageSizeOptions = [5, 10, 20, 50]
 
 function onSortClick(columnId: string) {
   if (!['date', 'amount', 'description', 'category', 'type'].includes(columnId)) return
@@ -206,28 +223,30 @@ function onSortClick(columnId: string) {
   emit('update:page', 1)
 }
 
-function goToPage(p: number) {
-  const next = Math.max(1, Math.min(p, totalPages.value))
-  emit('update:page', next)
-}
+// function goToPage(p: number) {
+//   const next = Math.max(1, Math.min(p, totalPages.value))
+//   emit('update:page', next)
+// }
 
-function onLimitChange(event: Event) {
-  const value = Number((event.target as HTMLSelectElement).value) || props.limit
-  emit('update:page', 1)
-  // здесь только эмитим в родителя через смену params.limit
-  // сам limit меняется в родителе, TransactionTable читает props.limit
-  ;(emit as any)('update:limit', value)
-}
+// function onLimitChange(event: Event) {
+//   const value = Number((event.target as HTMLSelectElement).value) || props.limit
+//   emit('update:page', 1)
+//   ;(emit as any)('update:limit', value)
+// }
 
-function applyPageInput() {
-  if (!pageInput.value) return
-  goToPage(pageInput.value)
-}
+// function applyPageInput() {
+//   if (!pageInput.value) return
+//   goToPage(pageInput.value)
+// }
 </script>
 
 <style scoped>
 .table-wrapper {
-  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
   border-radius: 0.75rem;
   border: 1px solid #e2e8f0;
   background: #fff;
@@ -237,7 +256,52 @@ function applyPageInput() {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #e2e8f0;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.table-toolbar__refresh {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #fff;
+  font-size: 0.85rem;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.table-toolbar__refresh:disabled {
+  cursor: wait;
+  opacity: 0.8;
+}
+
+.table-toolbar__refresh:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.table-toolbar__refresh-icon {
+  font-size: 1.05rem;
+  color: #64748b;
+}
+
+.table-toolbar__refresh-text {
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .table-toolbar__refresh-text {
+    display: none;
+  }
+
+  .table-toolbar__refresh {
+    padding: 0.35rem;
+  }
 }
 
 .filter {
@@ -249,6 +313,7 @@ function applyPageInput() {
 }
 
 .filter__input {
+  width: 100%;
   padding: 0.4rem 0.6rem;
   border-radius: 0.5rem;
   border: 1px solid #cbd5e1;
@@ -258,6 +323,50 @@ function applyPageInput() {
 .filter__icon {
   font-size: 0.9rem;
   color: #94a3b8;
+}
+
+.table-scroll {
+  position: relative;
+  overflow-y: auto;
+  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  .table-wrapper {
+    flex: none;
+    min-height: 200px;
+  }
+
+  .table-scroll {
+    flex: none;
+    min-height: 200px;
+    max-height: none;
+  }
+}
+
+.table-preloader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.75);
+  z-index: 2;
+}
+
+.table-preloader__spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: table-spin 0.7s linear infinite;
+}
+
+@keyframes table-spin {
+  to { transform: rotate(360deg); }
 }
 
 .tx-table {
@@ -279,6 +388,10 @@ td {
   font-weight: 600;
   color: #0f172a;
   user-select: none;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: 0 1px 0 0 #e2e8f0;
 }
 
 .tx-th__content {

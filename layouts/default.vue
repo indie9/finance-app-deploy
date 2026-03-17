@@ -13,7 +13,8 @@
 
         <div class="auth-box">
           <div class="auth-box__user">
-            <strong>{{ displayName }}</strong>
+            <strong class="auth-box__full-name">{{ displayName }}</strong>
+            <strong class="auth-box__initials" aria-hidden="true">{{ initials }}</strong>
           </div>
 
           <div class="auth-box__actions">
@@ -58,6 +59,19 @@ const displayName = computed(() => {
   return 'Гость'
 })
 
+function getInitials(name: string): string {
+  const s = name.trim()
+  if (!s) return '?'
+  const words = s.split(/\s+/).filter(Boolean)
+  if (words.length >= 2)
+    return (words[0][0] + words[1][0]).toUpperCase()
+  if (s.includes('@'))
+    return s[0].toUpperCase()
+  return s.slice(0, 2).toUpperCase()
+}
+
+const initials = computed(() => getInitials(displayName.value))
+
 const handleLogout = async () => {
   queryClient.removeQueries({ queryKey: transactionsQueryKey })
   queryClient.removeQueries({ queryKey: profileQueryKey })
@@ -68,9 +82,10 @@ const handleLogout = async () => {
 
 <style scoped>
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .header {
@@ -131,6 +146,20 @@ const handleLogout = async () => {
   font-size: 0.95rem;
 }
 
+.auth-box__initials {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .auth-box__full-name {
+    display: none;
+  }
+
+  .auth-box__initials {
+    display: inline;
+  }
+}
+
 .auth-box__actions {
   display: flex;
   gap: 0.75rem;
@@ -166,6 +195,10 @@ const handleLogout = async () => {
 
 .main {
   flex: 1;
+  min-height: 0;
   padding: 1.5rem;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 </style>
