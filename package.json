@@ -9,7 +9,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "start": "npm run dev",
-    "usenode24": "nvm use 24"
+    "usenode24": "nvm use 24",
+    "usenode25": "nvm use 25"
   },
   "dependencies": {
     "@nuxtjs/supabase": "^2.0.4",
