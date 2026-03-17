@@ -1,15 +1,8 @@
-import {
-  VueQueryPlugin,
-  QueryClient,
-  dehydrate,
-  hydrate,
-  type DehydratedState,
-} from '@tanstack/vue-query'
-import { useState } from '#imports'
+import { VueQueryPlugin, QueryClient } from '@tanstack/vue-query'
 
+// Упрощённый плагин без SSR-dehydrate/hydrate,
+// чтобы не вызывать ошибок на продакшене.
 export default defineNuxtPlugin((nuxt) => {
-  const vueQueryState = useState<DehydratedState | null>('vue-query')
-
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -19,18 +12,4 @@ export default defineNuxtPlugin((nuxt) => {
   })
 
   nuxt.vueApp.use(VueQueryPlugin, { queryClient })
-
-  if (process.server) {
-    nuxt.hooks.hook('app:rendered', () => {
-      try {
-        vueQueryState.value = dehydrate(queryClient)
-      } catch {
-        vueQueryState.value = null
-      }
-    })
-  }
-
-  if (process.client) {
-    hydrate(queryClient, vueQueryState.value ?? undefined)
-  }
 })
