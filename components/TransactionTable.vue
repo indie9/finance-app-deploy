@@ -35,7 +35,7 @@
           <th
             v-for="col in columnIds"
             :key="col.id"
-            :class="['tx-th', col.sortable && 'tx-th--sortable']"
+            :class="['tx-th', col.sortable && 'tx-th--sortable', col.id === 'actions' && 'tx-th--actions']"
             @click="col.sortable && onSortClick(col.id)"
           >
             <span class="tx-th__content">
@@ -77,6 +77,28 @@
             <span class="tx-type-pill" :class="tx.type === 'income' ? 'tx-type-pill--income' : 'tx-type-pill--expense'">
               {{ tx.type === 'income' ? 'Доход' : 'Расход' }}
             </span>
+          </td>
+          <td class="tx-actions-cell">
+            <div class="tx-actions">
+              <button
+              type="button"
+              class="tx-action-btn tx-action-btn--edit"
+              aria-label="Редактировать"
+              title="Редактировать"
+              @click="emit('edit', tx)"
+            >
+              ✎
+            </button>
+            <button
+              type="button"
+              class="tx-action-btn tx-action-btn--delete"
+              aria-label="Удалить"
+              title="Удалить"
+              @click="emit('delete', tx)"
+            >
+              ×
+            </button>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -175,6 +197,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   refresh: []
+  edit: [tx: Transaction]
+  delete: [tx: Transaction]
   'update:page': [value: number]
   'update:sort-by': [value: 'date' | 'amount' | 'description' | 'category' | 'type']
   'update:sort-order': [value: 'asc' | 'desc']
@@ -190,6 +214,7 @@ const columnIds = [
   { id: 'category', header: 'Категория', sortable: true },
   { id: 'amount', header: 'Сумма', sortable: true },
   { id: 'type', header: 'Тип', sortable: true },
+  { id: 'actions', header: '', sortable: false },
 ]
 
 // Пагинация временно отключена, но вычисление оставлено на будущее.
@@ -446,6 +471,44 @@ td {
 .tx-type-pill--expense {
   background-color: #fee2e2;
   color: #b91c1c;
+}
+
+.tx-th--actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.tx-actions-cell {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.tx-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.tx-action-btn {
+  padding: 0.35rem 0.5rem;
+  border: none;
+  border-radius: 0.4rem;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tx-action-btn--edit:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.tx-action-btn--delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 .tx-empty {

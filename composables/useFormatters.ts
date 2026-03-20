@@ -1,3 +1,5 @@
+import { formatDate as formatDateUtil } from '~/utils/date'
+
 /**
  * Общие форматтеры для чисел и дат (локаль ru-RU).
  */
@@ -8,10 +10,7 @@ export function useFormatters() {
       maximumFractionDigits: fractionDigits
     }).format(value)
 
-  const formatDate = (value: string | Date) =>
-    new Intl.DateTimeFormat('ru-RU', {
-      dateStyle: 'short'
-    } as Intl.DateTimeFormatOptions).format(new Date(value))
+  const formatDate = formatDateUtil
 
   const formatBudget = (value: number, currency: 'RUB' | 'USD' | 'EUR') => {
     const formatted = new Intl.NumberFormat('ru-RU', {

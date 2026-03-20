@@ -1,6 +1,13 @@
 <template>
   <section class="page">
-    <TransactionModal v-model="showTransactionModal" />
+    <TransactionModal
+      v-model="showTransactionModal"
+      :transaction="editingTransaction"
+    />
+    <CsvImportModal
+      v-model="showCsvImportModal"
+      @import-success="refetch()"
+    />
 
     <div class="stats">
       <div class="stat-card">
@@ -119,9 +126,18 @@
       <div class="period-actions">
         <button
           type="button"
+          class="csv-icon-button"
+          aria-label="Загрузить CSV"
+          title="Загрузить CSV"
+          @click="showCsvImportModal = true"
+        >
+          <span aria-hidden="true">⇪</span>
+        </button>
+        <button
+          type="button"
           class="add-btn add-btn--icon"
           aria-label="Добавить новую транзакцию"
-          @click="showTransactionModal = true"
+          @click="openAddTransaction"
         >
           <span class="add-btn__icon" aria-hidden="true">+</span>
           <span class="add-btn__text">Добавить</span>
@@ -140,7 +156,16 @@
         </div>
       </div>
       <div class="charts-grid__item">
-        <ExpensesByCategoryChart :transactions="transactions" />
+        <ExpensesByCategoryChart
+          :transactions="transactions"
+          :month-label="selectedMonthLabel"
+        />
+      </div>
+      <div class="charts-grid__item charts-grid__item--full">
+        <BudgetProgress :month="selectedMonthForBudget" />
+      </div>
+      <div class="charts-grid__item charts-grid__item--full">
+        <ForecastNextMonth />
       </div>
     </div>
 
@@ -160,6 +185,8 @@
         @update:sort-order="params.sortOrder = $event"
         @update:category-filter="params.category = $event"
         @update:limit="params.limit = $event"
+        @edit="openEditTransaction"
+        @delete="confirmDeleteTransaction"
       />
     </div>
 
@@ -176,18 +203,68 @@
         <p class="state-card__hint">Нажмите «Добавить транзакцию», чтобы создать первую.</p>
       </div>
     </Transition>
+
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="showDeleteConfirm"
+          class="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-confirm-title"
+          @click.self="showDeleteConfirm = false"
+          @keydown.escape="showDeleteConfirm = false"
+        >
+          <div class="modal-backdrop" />
+          <div class="modal-box modal-box--confirm">
+            <h2 id="delete-confirm-title" class="modal-title">Удалить транзакцию?</h2>
+            <p v-if="deletingTransaction" class="confirm-text">
+              {{ formatAmount(deletingTransaction.amount) }} — {{ deletingTransaction.category }}
+              <span v-if="deletingTransaction.description">({{ deletingTransaction.description }})</span>
+            </p>
+            <div class="confirm-actions">
+              <button
+                type="button"
+                class="btn btn--secondary"
+                @click="showDeleteConfirm = false"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                class="btn btn--danger"
+                :disabled="deleteMutation.isPending?.value"
+                @click="executeDeleteTransaction"
+              >
+                {{ deleteMutation.isPending?.value ? 'Удаление...' : 'Удалить' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </section>
 </template>
 
 <script setup lang="ts">
 import ExpensesByCategoryChart from '~/components/ExpensesByCategoryChart.vue'
 import BalanceTimelineChart from '~/components/BalanceTimelineChart.vue'
+import CsvImportModal from '~/components/CsvImportModal.vue'
+import { getStartOfMonth, getEndOfMonth, addDaysToDate } from '~/utils/date'
+import { format, parseISO } from 'date-fns'
+import { ru } from 'date-fns/locale'
+
 definePageMeta({
   layout: 'default'
 })
 
 const showTransactionModal = ref(false)
+const showCsvImportModal = ref(false)
+const editingTransaction = ref<import('~/types/transaction').Transaction | null>(null)
+const showDeleteConfirm = ref(false)
+const deletingTransaction = ref<import('~/types/transaction').Transaction | null>(null)
 const transactionStore = useTransactionStore()
+const deleteMutation = useDeleteTransaction()
 
 const params = reactive({
   page: 1,
@@ -206,7 +283,7 @@ const todayStr = computed(() => {
 
 const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
 
-const periodMode = ref<'days' | 'months'>('days')
+const periodMode = ref<'days' | 'months'>('months')
 const currentDay = ref(todayStr.value)
 const currentMonth = ref({
   year: new Date().getFullYear(),
@@ -217,19 +294,6 @@ const yearOptions = computed(() => {
   const y = new Date().getFullYear()
   return Array.from({ length: 11 }, (_, i) => y - 5 + i)
 })
-
-function firstDayOfMonth(year: number, month: number) {
-  return `${year}-${String(month).padStart(2, '0')}-01`
-}
-function lastDayOfMonth(year: number, month: number) {
-  const d = new Date(year, month, 0)
-  return `${year}-${String(month).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-function addDays(dateStr: string, delta: number) {
-  const d = new Date(dateStr + 'T12:00:00')
-  d.setDate(d.getDate() + delta)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 const isCurrentMonth = computed(() => {
   const now = new Date()
@@ -246,11 +310,11 @@ function switchPeriodMode(mode: 'days' | 'months') {
 }
 
 function prevDay() {
-  currentDay.value = addDays(currentDay.value, -1)
+  currentDay.value = addDaysToDate(currentDay.value, -1)
 }
 function nextDay() {
   if (currentDay.value >= todayStr.value) return
-  currentDay.value = addDays(currentDay.value, 1)
+  currentDay.value = addDaysToDate(currentDay.value, 1)
 }
 function prevMonth() {
   let { year, month } = currentMonth.value
@@ -268,11 +332,31 @@ function nextMonth() {
 
 const periodDateFrom = computed(() => {
   if (periodMode.value === 'days') return currentDay.value
-  return firstDayOfMonth(currentMonth.value.year, currentMonth.value.month)
+  return getStartOfMonth(currentMonth.value.year, currentMonth.value.month)
 })
 const periodDateTo = computed(() => {
   if (periodMode.value === 'days') return currentDay.value
-  return lastDayOfMonth(currentMonth.value.year, currentMonth.value.month)
+  return getEndOfMonth(currentMonth.value.year, currentMonth.value.month)
+})
+
+const selectedMonthForBudget = computed(() => {
+  if (periodMode.value === 'days') {
+    const [y, m] = currentDay.value.split('-')
+    if (!y || !m) return ''
+    return `${y}-${String(m).padStart(2, '0')}`
+  }
+  const { year, month } = currentMonth.value
+  return `${year}-${String(month).padStart(2, '0')}`
+})
+
+const selectedMonthLabel = computed(() => {
+  const m = selectedMonthForBudget.value
+  if (!m) return ''
+  try {
+    return format(parseISO(m + '-01'), 'LLL yyyy', { locale: ru })
+  } catch {
+    return m
+  }
 })
 
 watch([periodDateFrom, periodDateTo], ([from, to]) => {
@@ -296,6 +380,9 @@ watch(
 )
 watch(() => query.isError.value, (v) => { isError.value = v }, { flush: 'sync' })
 watch(() => query.isPending.value, (v) => { isPending.value = v }, { flush: 'sync' })
+watch(showTransactionModal, (v) => {
+  if (!v) editingTransaction.value = null
+})
 
 const { isFetching, refetch } = query
 
@@ -333,6 +420,31 @@ const status = computed(() => {
 })
 
 const { formatAmount } = useFormatters()
+
+function openAddTransaction() {
+  editingTransaction.value = null
+  showTransactionModal.value = true
+}
+
+function openEditTransaction(tx: import('~/types/transaction').Transaction) {
+  editingTransaction.value = tx
+  showTransactionModal.value = true
+}
+
+function confirmDeleteTransaction(tx: import('~/types/transaction').Transaction) {
+  deletingTransaction.value = tx
+  showDeleteConfirm.value = true
+}
+
+function executeDeleteTransaction() {
+  if (!deletingTransaction.value) return
+  deleteMutation.mutate(deletingTransaction.value.id, {
+    onSuccess: () => {
+      showDeleteConfirm.value = false
+      deletingTransaction.value = null
+    },
+  })
+}
 </script>
 
 <style scoped>
@@ -345,6 +457,18 @@ const { formatAmount } = useFormatters()
   margin: 0 auto;
   flex: 1;
   min-height: 0;
+}
+
+@media (min-width: 1400px) {
+  .page {
+    max-width: 96rem;
+  }
+}
+
+@media (min-width: 1600px) {
+  .page {
+    max-width: 112rem;
+  }
 }
 
 .page__table-wrap {
@@ -367,6 +491,10 @@ const { formatAmount } = useFormatters()
   overflow: hidden;
 }
 
+.charts-grid__item--full {
+  grid-column: 1 / -1;
+}
+
 .chart-placeholder {
   height: 100%;
   min-width: 0;
@@ -382,9 +510,23 @@ const { formatAmount } = useFormatters()
   text-align: center;
 }
 
+@media (min-width: 1200px) {
+  .charts-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .charts-grid__item--full {
+    grid-column: span 1;
+  }
+}
+
 @media (max-width: 900px) {
   .charts-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .charts-grid__item--full {
+    grid-column: 1;
   }
 }
 
@@ -424,6 +566,25 @@ const { formatAmount } = useFormatters()
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.csv-icon-button {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  aspect-ratio: 1;
+  min-width: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  color: #2563eb;
+}
+
+.csv-icon-button:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
 }
 
 .add-btn__icon {
@@ -528,7 +689,7 @@ const { formatAmount } = useFormatters()
 
 .period-actions {
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0.5rem;
   margin-left: auto;
 }
@@ -668,5 +829,83 @@ const { formatAmount } = useFormatters()
 .content-leave-to {
   opacity: 0;
   transform: translateY(6px);
+}
+
+/* Delete confirmation modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.modal-box {
+  position: relative;
+  width: 100%;
+  max-width: 28rem;
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  padding: 1.5rem;
+}
+
+.modal-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.confirm-text {
+  margin: 0 0 1.25rem;
+  color: #64748b;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn--secondary {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.btn--secondary:hover {
+  background: #cbd5e1;
+}
+
+.btn--danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.btn--danger:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 </style>

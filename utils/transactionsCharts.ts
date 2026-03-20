@@ -46,3 +46,26 @@ export function buildBalanceTimeline(transactions: Transaction[]): BalanceTimeli
   return result
 }
 
+/** Кумулятивный баланс по месяцам (date = первый день месяца YYYY-MM-01) */
+export function buildBalanceTimelineByMonth(transactions: Transaction[]): BalanceTimelinePoint[] {
+  const byMonth = new Map<string, number>()
+
+  for (const tx of transactions) {
+    const month = tx.date.slice(0, 7) // YYYY-MM
+    const delta = tx.type === 'income' ? tx.amount : -tx.amount
+    byMonth.set(month, (byMonth.get(month) ?? 0) + delta)
+  }
+
+  const months = Array.from(byMonth.keys()).sort()
+
+  const result: BalanceTimelinePoint[] = []
+  let cumulative = 0
+
+  for (const month of months) {
+    cumulative += byMonth.get(month) ?? 0
+    result.push({ date: `${month}-01`, balance: cumulative })
+  }
+
+  return result
+}
+

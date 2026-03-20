@@ -1,5 +1,28 @@
 <template>
-  <div class="auth-page">
+  <div class="auth-page" :class="{ 'auth-page--with-hint': showHint }">
+    <Transition name="auth-hint">
+      <div v-if="showHint" class="auth-hint">
+        <span class="auth-hint__text">
+          Зарегистрируйтесь или используйте тестовые данные:
+          <code>galanovn2@gmail.com</code> / <code>123456</code>
+        </span>
+        <button
+          type="button"
+          class="auth-hint__fill"
+          @click="fillDemoCredentials"
+        >
+          Заполнить форму
+        </button>
+        <button
+          type="button"
+          class="auth-hint__close"
+          aria-label="Закрыть подсказку"
+          @click="showHint = false"
+        >
+          ×
+        </button>
+      </div>
+    </Transition>
     <Transition name="auth-card" appear>
       <div class="auth-card">
         <h2 class="auth-card__title">Вход</h2>
@@ -62,7 +85,25 @@ definePageMeta({
 const email = ref('')
 const password = ref('')
 const isLoggingIn = ref(false)
+const showHint = ref(true)
 const supabase = useSupabaseClient()
+
+function fillDemoCredentials() {
+  email.value = 'galanovn2@gmail.com'
+  password.value = '123456'
+}
+
+async function waitForAuth(maxAttempts = 10, intervalMs = 150): Promise<boolean> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      await $fetch('/api/auth/check')
+      return true
+    } catch {
+      await new Promise(resolve => setTimeout(resolve, intervalMs))
+    }
+  }
+  return false
+}
 
 const handleLogin = async () => {
   if (isLoggingIn.value) return
@@ -78,8 +119,11 @@ const handleLogin = async () => {
       throw error
     }
 
-    // Даём время Supabase обновить состояние перед редиректом
-    await new Promise(resolve => setTimeout(resolve, 100))
+    const authorized = await waitForAuth()
+    if (!authorized) {
+      throw new Error('Сервер не подтвердил авторизацию. Попробуйте ещё раз.')
+    }
+
     await navigateTo('/', { replace: true })
   } catch (error) {
     alert(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
@@ -93,10 +137,98 @@ const handleLogin = async () => {
 .auth-page {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
   padding: 1.5rem;
+  background: #f8fafc;
+}
+
+.auth-hint {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.25rem;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.4);
+  font-size: 0.95rem;
+  color: #fff;
+  font-weight: 500;
+}
+
+.auth-hint__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.auth-hint__text code {
+  padding: 0.2rem 0.5rem;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.auth-hint__fill {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  background: #fff;
+  color: #2563eb;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.auth-hint__fill:hover {
+  background: #f8fafc;
+  transform: scale(1.02);
+}
+
+.auth-hint__close {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 0.35rem;
+}
+
+.auth-hint__close:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.auth-hint-enter-active,
+.auth-hint-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.auth-hint-enter-from,
+.auth-hint-leave-to {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+
+.auth-page--with-hint {
+  padding-top: 3.5rem;
 }
 
 .auth-card {

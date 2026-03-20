@@ -6,6 +6,9 @@
           <NuxtLink to="/" class="nav-link" active-class="nav-link--active">
             Дашборд
           </NuxtLink>
+          <NuxtLink to="/budgets" class="nav-link" active-class="nav-link--active">
+            Бюджеты
+          </NuxtLink>
           <NuxtLink to="/profile" class="nav-link" active-class="nav-link--active">
             Профиль
           </NuxtLink>
@@ -45,6 +48,7 @@
 <script setup lang="ts">
 import { useQueryClient } from '@tanstack/vue-query'
 import { transactionsQueryKey } from '~/composables/useTransactions'
+import { budgetsQueryKey, categoriesQueryKey } from '~/composables/useBudgets'
 import { profileQueryKey, useProfileQuery } from '~/composables/useProfile'
 
 const supabase = useSupabaseClient()
@@ -74,6 +78,8 @@ const initials = computed(() => getInitials(displayName.value))
 
 const handleLogout = async () => {
   queryClient.removeQueries({ queryKey: transactionsQueryKey })
+  queryClient.removeQueries({ queryKey: budgetsQueryKey })
+  queryClient.removeQueries({ queryKey: categoriesQueryKey })
   queryClient.removeQueries({ queryKey: profileQueryKey })
   await supabase.auth.signOut()
   await navigateTo('/login')
@@ -82,7 +88,6 @@ const handleLogout = async () => {
 
 <style scoped>
 .app {
-  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -100,6 +105,21 @@ const handleLogout = async () => {
   gap: 1rem 1.5rem;
   align-items: center;
   flex-wrap: wrap;
+  max-width: 72rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (min-width: 1400px) {
+  .header-row {
+    max-width: 96rem;
+  }
+}
+
+@media (min-width: 1600px) {
+  .header-row {
+    max-width: 112rem;
+  }
 }
 
 .nav {

@@ -8,14 +8,16 @@
         tabindex="-1"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        :aria-labelledby="modalTitleId"
         @click.self="close"
         @keydown.escape="close"
       >
         <div class="modal-backdrop" />
         <div class="modal-box">
           <header class="modal-header">
-            <h2 id="modal-title" class="modal-title">{{ modalTitle }}</h2>
+            <h2 :id="modalTitleId" class="modal-title">
+              {{ budget ? 'Редактировать бюджет' : 'Новый бюджет' }}
+            </h2>
             <button
               type="button"
               class="modal-close"
@@ -26,7 +28,7 @@
             </button>
           </header>
           <div class="modal-body">
-            <TransactionForm :transaction="transaction" @success="onFormSuccess" />
+            <BudgetForm :budget="budget ?? undefined" @success="onFormSuccess" />
           </div>
         </div>
       </div>
@@ -35,22 +37,19 @@
 </template>
 
 <script setup lang="ts">
-import type { Transaction } from '~/types/transaction'
+import type { Budget } from '~/types/budget'
 
 const props = defineProps<{
   modelValue: boolean
-  transaction?: Transaction | null
+  budget?: Budget | null
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
 
+const modalTitleId = 'budget-modal-title'
 const overlayRef = ref<HTMLElement | null>(null)
-
-const modalTitle = computed(() =>
-  props.transaction ? 'Редактировать транзакцию' : 'Новая транзакция'
-)
 
 watch(
   () => props.modelValue,
@@ -129,7 +128,6 @@ function onFormSuccess() {
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
 }
 
 .modal-close:hover {
@@ -141,43 +139,20 @@ function onFormSuccess() {
   padding: 1.5rem;
 }
 
-.modal-body :deep(.transaction-form) {
+.modal-body :deep(.budget-form) {
   padding: 0;
   border: none;
-  border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 
-/* Smooth transitions */
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.25s ease;
 }
 
-.modal-enter-active .modal-backdrop,
-.modal-leave-active .modal-backdrop {
-  transition: opacity 0.25s ease;
-}
-
-.modal-enter-active .modal-box,
-.modal-leave-active .modal-box {
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
-}
-
 .modal-enter-from,
 .modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-from .modal-backdrop,
-.modal-leave-to .modal-backdrop {
-  opacity: 0;
-}
-
-.modal-enter-from .modal-box,
-.modal-leave-to .modal-box {
-  transform: scale(0.95);
   opacity: 0;
 }
 </style>

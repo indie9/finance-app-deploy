@@ -1,6 +1,8 @@
 <template>
   <div class="card">
-    <h2 class="card__title">Расходы по категориям</h2>
+    <h2 class="card__title">
+      Расходы по категориям{{ props.monthLabel ? ` (${props.monthLabel})` : '' }}
+    </h2>
     <div class="card__body">
       <div v-if="!hasData" class="card__empty">
         Недостаточно данных для построения графика.
@@ -31,6 +33,7 @@ ChartJS.register(ArcElement, Tooltip, Legend)
 
 const props = defineProps<{
   transactions: Transaction[]
+  monthLabel?: string
 }>()
 
 const dataset = computed(() => aggregateByCategory(props.transactions.filter(tx => tx.type === 'expense')))

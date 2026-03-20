@@ -1,55 +1,41 @@
 <template>
-  <form class="transaction-form" @submit.prevent="submit">
+  <form class="budget-form" @submit.prevent="submit">
     <div class="form-grid">
-      <label class="field">
-        <span>Тип</span>
-        <select v-model="form.type" class="input">
-          <option value="income">Доход</option>
-          <option value="expense">Расход</option>
-        </select>
-      </label>
-
-      <label class="field">
-        <span>Сумма</span>
-        <input
-          v-model.number="form.amount"
-          type="number"
-          step="0.01"
-          min="0"
-          placeholder="0.00"
-          class="input"
-          aria-invalid="!!(clientError && clientError.includes('Сумма'))"
-        >
-      </label>
-
       <label class="field field--full">
         <span>Категория</span>
         <input
           v-model.trim="form.category"
           type="text"
-          placeholder="Например: Продукты, Зарплата, Транспорт"
+          list="budget-categories"
+          placeholder="Например: Продукты, Транспорт"
           class="input"
           aria-required="true"
           aria-invalid="!!(clientError && clientError.includes('категорию'))"
         >
+        <datalist id="budget-categories">
+          <option v-for="c in categories" :key="c" :value="c">
+            {{ c }}
+          </option>
+        </datalist>
       </label>
 
       <label class="field">
-        <span>Дата</span>
-        <input
-          v-model="form.date"
-          type="date"
-          class="input"
-        >
+        <span>Период</span>
+        <select v-model="form.period" class="input">
+          <option value="monthly">Ежемесячно</option>
+        </select>
       </label>
 
-      <label class="field field--full">
-        <span>Описание (необязательно)</span>
+      <label class="field">
+        <span>Лимит (₽)</span>
         <input
-          v-model.trim="form.description"
-          type="text"
-          placeholder="Краткое описание или комментарий"
+          v-model.number="form.amount"
+          type="number"
+          step="0.01"
+          min="0.01"
+          placeholder="0.00"
           class="input"
+          aria-invalid="!!(clientError && clientError.includes('Лимит'))"
         >
       </label>
     </div>
@@ -61,6 +47,13 @@
       <p v-else-if="successMessage" class="message message--success" role="status">
         {{ successMessage }}
       </p>
+      <p
+        v-else-if="categoryHint"
+        class="message message--hint"
+        role="status"
+      >
+        {{ categoryHint }}
+      </p>
     </Transition>
 
     <div class="actions">
@@ -71,70 +64,71 @@
         :aria-busy="isSaving"
       >
         <span v-if="isSaving" class="submit-btn__spinner" aria-hidden="true" />
-        {{ isSaving ? 'Сохранение...' : (transaction ? 'Сохранить изменения' : 'Сохранить') }}
+        {{ isSaving ? 'Сохранение...' : (isEdit ? 'Сохранить' : 'Создать бюджет') }}
       </button>
     </div>
   </form>
 </template>
 
 <script setup lang="ts">
-import type { Transaction } from '~/types/transaction'
+import type { Budget } from '~/types/budget'
 
 const props = withDefaults(
   defineProps<{
-    transaction?: Transaction | null
+    budget?: Budget | null
   }>(),
-  { transaction: null }
+  { budget: null }
 )
 
 const emit = defineEmits<{
   success: []
 }>()
 
-const addMutation = useAddTransaction()
-const updateMutation = useUpdateTransaction()
-const successMessage = ref('')
+const { data: categoriesList } = useCategoriesQuery()
+const categories = computed(() => categoriesList.value ?? [])
 
-const isEdit = computed(() => !!props.transaction)
+const addMutation = useAddBudget()
+const updateMutation = useUpdateBudget()
+
+const isEdit = computed(() => !!props.budget)
+
 const isSaving = computed(
   () => Boolean(addMutation.isPending?.value || updateMutation.isPending?.value)
 )
 
-const defaultDate = () => new Date().toISOString().slice(0, 10)
-
 const form = reactive({
-  amount: 0,
-  type: 'expense' as 'income' | 'expense',
   category: '',
-  date: defaultDate(),
-  description: ''
+  period: 'monthly',
+  amount: 0,
 })
 
-function resetForm() {
-  form.amount = 0
-  form.type = 'expense'
-  form.category = ''
-  form.date = defaultDate()
-  form.description = ''
-}
-
 watch(
-  () => props.transaction,
-  (tx) => {
-    if (tx) {
-      form.amount = tx.amount
-      form.type = tx.type
-      form.category = tx.category
-      form.date = tx.date ? tx.date.slice(0, 10) : defaultDate()
-      form.description = tx.description ?? ''
+  () => props.budget,
+  (b) => {
+    if (b) {
+      form.category = b.category
+      form.period = b.period || 'monthly'
+      form.amount = b.amount
     } else {
-      resetForm()
+      form.category = ''
+      form.period = 'monthly'
+      form.amount = 0
     }
   },
   { immediate: true }
 )
 
 const clientError = ref('')
+const successMessage = ref('')
+
+const categoryHint = computed(() => {
+  const cat = form.category.trim()
+  if (!cat) return ''
+  const catNorm = cat.toLowerCase()
+  const found = categories.value.some((c) => c.trim().toLowerCase() === catNorm)
+  if (found) return ''
+  return `Категория «${cat}» пока не встречалась в транзакциях. Факт и остаток появятся, когда вы добавите транзакции с такой категорией.`
+})
 
 const errorMessage = computed(() => {
   if (clientError.value) return clientError.value
@@ -144,54 +138,49 @@ const errorMessage = computed(() => {
   return e?.data?.message ?? e?.statusMessage ?? 'Не удалось сохранить. Попробуйте снова.'
 })
 
-const submit = () => {
+function submit() {
   successMessage.value = ''
   clientError.value = ''
-  if (form.amount <= 0 || !Number.isFinite(form.amount)) {
-    clientError.value = 'Сумма должна быть больше нуля.'
-    return
-  }
   if (!form.category.trim()) {
     clientError.value = 'Укажите категорию.'
     return
   }
+  if (form.amount <= 0 || !Number.isFinite(form.amount)) {
+    clientError.value = 'Лимит должен быть больше нуля.'
+    return
+  }
 
-  if (isEdit.value && props.transaction) {
+  if (isEdit.value && props.budget) {
     updateMutation.mutate(
       {
-        id: props.transaction.id,
+        id: props.budget.id,
         payload: {
-          amount: form.amount,
-          type: form.type,
           category: form.category,
-          date: form.date ? new Date(form.date).toISOString() : undefined,
-          description: form.description || undefined
-        }
+          amount: form.amount,
+          period: form.period,
+        },
       },
       {
         onSuccess: () => {
           clientError.value = ''
-          successMessage.value = 'Транзакция обновлена.'
+          successMessage.value = 'Бюджет обновлён.'
           emit('success')
-        }
+        },
       }
     )
   } else {
     addMutation.mutate(
       {
-        amount: form.amount,
-        type: form.type,
         category: form.category,
-        date: form.date ? new Date(form.date).toISOString() : undefined,
-        description: form.description || undefined
+        amount: form.amount,
+        period: form.period,
       },
       {
         onSuccess: () => {
           clientError.value = ''
-          successMessage.value = 'Транзакция добавлена.'
-          resetForm()
+          successMessage.value = 'Бюджет создан.'
           emit('success')
-        }
+        },
       }
     )
   }
@@ -199,7 +188,7 @@ const submit = () => {
 </script>
 
 <style scoped>
-.transaction-form {
+.budget-form {
   padding: 1.25rem;
   border: 1px solid #e5e7eb;
   border-radius: 1rem;
@@ -238,10 +227,6 @@ const submit = () => {
   box-sizing: border-box;
 }
 
-.input {
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
 .input:focus {
   outline: none;
   border-color: #2563eb;
@@ -250,7 +235,6 @@ const submit = () => {
 
 .input[aria-invalid="true"] {
   border-color: #dc2626;
-  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
 }
 
 .message {
@@ -258,17 +242,6 @@ const submit = () => {
   padding: 0.6rem 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.9rem;
-  transition: opacity 0.2s ease;
-}
-
-.message-enter-active,
-.message-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.message-enter-from,
-.message-leave-to {
-  opacity: 0;
 }
 
 .message--error {
@@ -283,6 +256,12 @@ const submit = () => {
   border: 1px solid #bbf7d0;
 }
 
+.message--hint {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
 .actions {
   margin-top: 1rem;
 }
@@ -290,7 +269,6 @@ const submit = () => {
 .submit-btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 0.5rem;
   padding: 0.6rem 1rem;
   border: 0;
@@ -299,15 +277,10 @@ const submit = () => {
   color: #fff;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, transform 0.15s;
 }
 
 .submit-btn:hover:not(:disabled) {
   background: #1d4ed8;
-}
-
-.submit-btn:active:not(:disabled) {
-  transform: scale(0.98);
 }
 
 .submit-btn:disabled {
