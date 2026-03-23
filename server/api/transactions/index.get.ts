@@ -2,6 +2,12 @@ import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
 import type { Transaction } from '~/types/transaction'
 
 const SORT_FIELDS = ['date', 'amount', 'description', 'category', 'type'] as const
+type SortField = (typeof SORT_FIELDS)[number]
+
+function isSortField(x: unknown): x is SortField {
+  return typeof x === 'string' && SORT_FIELDS.includes(x as SortField)
+}
+
 const DEFAULT_PAGE = 1
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 500
@@ -19,9 +25,7 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const page = Math.max(1, Number(query.page) || DEFAULT_PAGE)
   const limit = Math.min(MAX_LIMIT, Math.max(1, Number(query.limit) || DEFAULT_LIMIT))
-  const sortBy = SORT_FIELDS.includes(query.sortBy as any)
-    ? (query.sortBy as (typeof SORT_FIELDS)[number])
-    : 'date'
+  const sortBy = isSortField(query.sortBy) ? query.sortBy : 'date'
   const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc'
   const category = typeof query.category === 'string' ? query.category.trim() : ''
   const dateFrom = isValidDateStr(query.dateFrom) ? query.dateFrom : undefined

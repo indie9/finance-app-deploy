@@ -18,7 +18,7 @@
           min="0"
           placeholder="0.00"
           class="input"
-          aria-invalid="!!(clientError && clientError.includes('Сумма'))"
+          :aria-invalid="!!(clientError && clientError.includes('Сумма'))"
         >
       </label>
 
@@ -30,7 +30,7 @@
           placeholder="Например: Продукты, Зарплата, Транспорт"
           class="input"
           aria-required="true"
-          aria-invalid="!!(clientError && clientError.includes('категорию'))"
+          :aria-invalid="!!(clientError && clientError.includes('категорию'))"
         >
       </label>
 

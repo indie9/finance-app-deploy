@@ -1,75 +1,85 @@
-# Nuxt Minimal Starter
+# Finance AI — учёт личных финансов
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Пет-проект на Nuxt 4: приложение для учёта доходов и расходов с дашбордом, бюджетами, графиками и импортом из CSV.
 
-## Setup
+## Стек
 
-Make sure to install dependencies:
+- **Nuxt 4** — full-stack фреймворк
+- **Vue 3** — Composition API, `<script setup>`
+- **TypeScript** — строгая типизация
+- **Supabase** — auth, PostgreSQL (RLS)
+- **TanStack Vue Query** — кэш, optimistic updates
+- **Pinia** — глобальное состояние (минимально)
+- **Tailwind CSS** — стили
+- **Chart.js / vue-chartjs** — графики
+
+## Функциональность
+
+- Регистрация и вход (Supabase Auth)
+- Транзакции: CRUD, пагинация, сортировка, фильтры
+- Дашборд: баланс, доходы, расходы по дням/месяцам
+- Бюджеты по категориям
+- Прогноз на следующий месяц
+- Импорт транзакций из CSV
+
+## Запуск
+
+### Требования
+
+- Node.js 18+
+- Аккаунт [Supabase](https://supabase.com)
+
+### Установка
 
 ```bash
-# npm
 npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
+cp .env.example .env
 ```
 
-## Development Server
+Заполните `.env` значениями из Supabase (Settings → API):
 
-Start the development server on `http://localhost:3000`:
+```
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+### Разработка
 
 ```bash
-# npm
 npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
-## Production
+Приложение: http://localhost:3000
 
-Build the application for production:
+### Сборка
 
 ```bash
-# npm
 npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
 npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
 ```
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+## Структура проекта
+
+```
+├── components/          # Vue-компоненты
+├── composables/         # useTransactions, useBudgets, useProfile, useForecast
+├── layouts/             # default, auth
+├── middleware/          # auth.global.ts
+├── pages/               # index (дашборд), budgets, profile, login, register
+├── server/api/          # Nitro API: transactions, budgets, auth
+├── stores/              # Pinia
+├── types/               # Transaction, Budget и т.д.
+└── utils/               # date, форматирование, CSV-парсинг
+```
+
+## Безопасность
+
+- Все API-роуты проверяют `serverSupabaseUser` — без авторизации 401
+- `.env` в `.gitignore`, секреты не коммитятся
+- Валидация и санитизация на сервере (amount, type, category, даты)
+- RLS в Supabase — пользователь видит только свои данные
+
+## Лицензия
+
+MIT

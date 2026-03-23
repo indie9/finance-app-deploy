@@ -38,7 +38,7 @@
               class="period-toggle__btn"
               :class="periodMode === 'days' && 'period-toggle__btn--active'"
               role="tab"
-              aria-selected="periodMode === 'days'"
+              :aria-selected="periodMode === 'days'"
               @click="switchPeriodMode('days')"
             >
               По дням
@@ -48,7 +48,7 @@
               class="period-toggle__btn"
               :class="periodMode === 'months' && 'period-toggle__btn--active'"
               role="tab"
-              aria-selected="periodMode === 'months'"
+              :aria-selected="periodMode === 'months'"
               @click="switchPeriodMode('months')"
             >
               По месяцам

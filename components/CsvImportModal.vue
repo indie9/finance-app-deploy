@@ -323,9 +323,10 @@ async function importAll() {
     resetModalState()
     emit('import-success')
     emit('update:modelValue', false)
-  } catch (e: any) {
+  } catch (e: unknown) {
     importStatus.value = 'error'
-    importError.value = e?.data?.message || 'Не удалось импортировать CSV.'
+    const err = e as { data?: { message?: string } }
+    importError.value = err?.data?.message || 'Не удалось импортировать CSV.'
     return
   }
 

@@ -10,7 +10,7 @@
           placeholder="Например: Продукты, Транспорт"
           class="input"
           aria-required="true"
-          aria-invalid="!!(clientError && clientError.includes('категорию'))"
+          :aria-invalid="!!(clientError && clientError.includes('категорию'))"
         >
         <datalist id="budget-categories">
           <option v-for="c in categories" :key="c" :value="c">
@@ -35,7 +35,7 @@
           min="0.01"
           placeholder="0.00"
           class="input"
-          aria-invalid="!!(clientError && clientError.includes('Лимит'))"
+          :aria-invalid="!!(clientError && clientError.includes('Лимит'))"
         >
       </label>
     </div>

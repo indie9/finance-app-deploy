@@ -4,6 +4,7 @@
       <div class="auth-card">
         <h2 class="auth-card__title">Регистрация</h2>
         <p class="auth-card__hint">Создайте аккаунт для учёта финансов</p>
+        <p v-if="regError" class="auth-error" role="alert">{{ regError }}</p>
         <form @submit.prevent="handleRegister" class="auth-form">
           <div class="auth-field">
             <label for="reg-email" class="auth-label">Email</label>
@@ -62,12 +63,14 @@ definePageMeta({
 const email = ref('')
 const password = ref('')
 const isRegistering = ref(false)
+const regError = ref('')
 const supabase = useSupabaseClient()
 
 const handleRegister = async () => {
   if (isRegistering.value) return
 
   isRegistering.value = true
+  regError.value = ''
   try {
     const { error } = await supabase.auth.signUp({
       email: email.value,
@@ -80,7 +83,7 @@ const handleRegister = async () => {
 
     await navigateTo('/login')
   } catch (error) {
-    alert(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+    regError.value = error instanceof Error ? error.message : 'Неизвестная ошибка'
   } finally {
     isRegistering.value = false
   }
@@ -120,6 +123,16 @@ const handleRegister = async () => {
   font-size: 0.9rem;
   color: #64748b;
   text-align: center;
+}
+
+.auth-error {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
 }
 
 .auth-form {

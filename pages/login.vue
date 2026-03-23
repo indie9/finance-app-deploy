@@ -11,7 +11,7 @@
           class="auth-hint__fill"
           @click="fillDemoCredentials"
         >
-          Заполнить форму
+          Подставить в форму
         </button>
         <button
           type="button"
@@ -27,6 +27,7 @@
       <div class="auth-card">
         <h2 class="auth-card__title">Вход</h2>
         <p class="auth-card__hint">Введите данные от вашего аккаунта</p>
+        <p v-if="authError" class="auth-error" role="alert">{{ authError }}</p>
         <form @submit.prevent="handleLogin" class="auth-form">
           <div class="auth-field">
             <label for="login-email" class="auth-label">Email</label>
@@ -86,6 +87,7 @@ const email = ref('')
 const password = ref('')
 const isLoggingIn = ref(false)
 const showHint = ref(true)
+const authError = ref('')
 const supabase = useSupabaseClient()
 
 function fillDemoCredentials() {
@@ -109,6 +111,7 @@ const handleLogin = async () => {
   if (isLoggingIn.value) return
 
   isLoggingIn.value = true
+  authError.value = ''
   try {
     const { error } = await supabase.auth.signInWithPassword({
       email: email.value,
@@ -126,7 +129,7 @@ const handleLogin = async () => {
 
     await navigateTo('/', { replace: true })
   } catch (error) {
-    alert(`Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+    authError.value = error instanceof Error ? error.message : 'Неизвестная ошибка'
   } finally {
     isLoggingIn.value = false
   }
@@ -254,6 +257,16 @@ const handleLogin = async () => {
   font-size: 0.9rem;
   color: #64748b;
   text-align: center;
+}
+
+.auth-error {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
 }
 
 .auth-form {
