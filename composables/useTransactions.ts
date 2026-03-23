@@ -87,7 +87,7 @@ export function useAddTransaction() {
       }) as Array<[unknown[], TransactionsResponse | undefined]>
 
       for (const [queryKey, old] of previous) {
-        if (!old) continue
+        if (!old || !Array.isArray(old.data) || typeof old.total !== 'number') continue
 
         const keyArr = queryKey as unknown[]
         const page = Number(keyArr[1] ?? 1) || 1
@@ -177,7 +177,7 @@ export function useAddTransaction() {
 
       if (tempId) {
         for (const [queryKey, old] of ctx?.previous ?? []) {
-          if (!old) continue
+          if (!old || !Array.isArray(old.data)) continue
           queryClient.setQueryData(queryKey, {
             ...old,
             data: old.data.map((t) => (t.id === tempId ? data : t)),

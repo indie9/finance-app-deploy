@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Transaction } from '~/types/transaction'
+import type { Transaction, TransactionUpdatePayload } from '~/types/transaction'
 
 const props = withDefaults(
   defineProps<{
@@ -140,8 +140,20 @@ const errorMessage = computed(() => {
   if (clientError.value) return clientError.value
   const err = isEdit.value ? updateMutation.error.value : addMutation.error.value
   if (!err) return ''
-  const e = err as { data?: { message?: string }; statusMessage?: string }
-  return e?.data?.message ?? e?.statusMessage ?? 'Не удалось сохранить. Попробуйте снова.'
+  const e = err as {
+    data?: { message?: string; statusMessage?: string }
+    statusMessage?: string
+    message?: string
+  }
+  const msg =
+    e?.data?.statusMessage ??
+    e?.data?.message ??
+    e?.statusMessage ??
+    e?.message
+  if (import.meta.dev && !msg) {
+    console.warn('[TransactionForm] Не удалось извлечь сообщение из ошибки:', e)
+  }
+  return msg ?? 'Не удалось сохранить. Попробуйте снова.'
 })
 
 const submit = () => {
@@ -157,17 +169,16 @@ const submit = () => {
   }
 
   if (isEdit.value && props.transaction) {
+    const tx = props.transaction
+    const payload: TransactionUpdatePayload = {
+      amount: form.amount,
+      type: form.type,
+      category: form.category.trim(),
+      date: form.date ? new Date(form.date).toISOString() : undefined,
+      description: form.description.trim() || undefined
+    }
     updateMutation.mutate(
-      {
-        id: props.transaction.id,
-        payload: {
-          amount: form.amount,
-          type: form.type,
-          category: form.category,
-          date: form.date ? new Date(form.date).toISOString() : undefined,
-          description: form.description || undefined
-        }
-      },
+      { id: tx.id, payload },
       {
         onSuccess: () => {
           clientError.value = ''
