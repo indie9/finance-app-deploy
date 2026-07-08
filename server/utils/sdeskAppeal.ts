@@ -70,6 +70,66 @@ const SDESK_CREATE_APPEAL_URL =
 const SDESK_DEBUG = process.env.SDESK_DEBUG === 'true'
 const SDESK_TIMEOUT_MS = Number(process.env.SDESK_TIMEOUT_MS ?? 30_000)
 const SDESK_LOG_BODY_MAX = 2000
+const SDESK_PROBE_OUTBOUND = process.env.SDESK_PROBE_OUTBOUND !== 'false'
+// httpbin принимает POST и возвращает echo тела — удобно для проверки исходящих POST с Vercel.
+const SDESK_PROBE_URL = process.env.SDESK_PROBE_URL ?? 'https://httpbin.org/post'
+
+async function probeOutboundPost(requestId: string): Promise<void> {
+  const startedAt = Date.now()
+  const probeBody = { probe: true, source: 'finance-ai-nuxt', requestId }
+
+  console.info('[outbound-probe] start', {
+    requestId,
+    method: 'POST',
+    url: SDESK_PROBE_URL,
+    urlParts: parseUrlForLog(SDESK_PROBE_URL),
+    body: probeBody,
+    startedAt: new Date(startedAt).toISOString(),
+  })
+
+  try {
+    const res = await fetch(SDESK_PROBE_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(probeBody),
+    })
+
+    const durationMs = Date.now() - startedAt
+    let responseBody = ''
+
+    try {
+      responseBody = await res.text()
+    } catch {
+      // ignore
+    }
+
+    const log = {
+      requestId,
+      durationMs,
+      ok: res.ok,
+      status: res.status,
+      statusText: res.statusText,
+      url: SDESK_PROBE_URL,
+      responseHeaders: headersToObject(res.headers),
+      responseBodyLength: responseBody.length,
+      responseBodySnippet: responseBody.slice(0, 500),
+    }
+
+    if (res.ok) {
+      console.info('[outbound-probe] success', log)
+    } else {
+      console.warn('[outbound-probe] responded not ok', log)
+    }
+  } catch (e: unknown) {
+    console.error('[outbound-probe] failed', {
+      requestId,
+      durationMs: Date.now() - startedAt,
+      url: SDESK_PROBE_URL,
+      urlParts: parseUrlForLog(SDESK_PROBE_URL),
+      ...serializeErrorChain(e, SDESK_DEBUG),
+    })
+  }
+}
 
 export async function createSdeskAppeal(params: {
   category: string
@@ -103,6 +163,8 @@ export async function createSdeskAppeal(params: {
   }
 
   console.info('[sdesk] create_appeal start', requestLog)
+
+  const probePromise = SDESK_PROBE_OUTBOUND ? probeOutboundPost(requestId) : Promise.resolve()
 
   try {
     timeoutId = setTimeout(() => {
@@ -180,5 +242,6 @@ export async function createSdeskAppeal(params: {
     return false
   } finally {
     if (timeoutId) clearTimeout(timeoutId)
+    await probePromise
   }
 }
