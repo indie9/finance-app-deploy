@@ -18,6 +18,10 @@ export type TransactionsResponse = {
   total: number
 }
 
+type AddTransactionResponse = Transaction & {
+  integrationOk?: boolean
+}
+
 export function useTransactions(params: TransactionsParams = {}) {
   return useQuery({
     queryKey: computed(() => [
@@ -56,7 +60,7 @@ export function useAddTransaction() {
 
   return useMutation({
     mutationFn: (payload: TransactionCreatePayload) =>
-      $fetch<Transaction>('/api/transactions', {
+      $fetch<AddTransactionResponse>('/api/transactions', {
         method: 'POST',
         body: {
           ...payload,

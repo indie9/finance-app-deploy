@@ -79,6 +79,7 @@
 
 <script setup lang="ts">
 import type { Transaction, TransactionUpdatePayload } from '~/types/transaction'
+import { useAppAlerts } from '~/composables/useAppAlerts'
 
 const props = withDefaults(
   defineProps<{
@@ -94,6 +95,7 @@ const emit = defineEmits<{
 const addMutation = useAddTransaction()
 const updateMutation = useUpdateTransaction()
 const successMessage = ref('')
+const { pushAlert } = useAppAlerts()
 
 const isEdit = computed(() => !!props.transaction)
 const isSaving = computed(
@@ -197,12 +199,20 @@ const submit = () => {
         description: form.description || undefined
       },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           clientError.value = ''
           successMessage.value = 'Транзакция добавлена.'
           resetForm()
+
+          if ((data as { integrationOk?: boolean }).integrationOk) {
+            pushAlert({
+              type: 'success',
+              message: 'Интеграция внешней системы успешно выполнена.',
+            })
+          }
+
           emit('success')
-        }
+        },
       }
     )
   }

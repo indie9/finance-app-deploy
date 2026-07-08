@@ -1,5 +1,6 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
 import type { TransactionCreatePayload } from '~/types/transaction'
+import { createSdeskAppeal } from '~/server/utils/sdeskAppeal'
 
 const ALLOWED_TYPES = ['income', 'expense'] as const
 
@@ -49,7 +50,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const client = await serverSupabaseClient(event)
-  const { data, error } = await client
+  const dbPromise = client
     .from('transactions')
     .insert({
       user_id: user.sub,
@@ -62,9 +63,17 @@ export default defineEventHandler(async (event) => {
     .select()
     .single()
 
+  // Интеграцию запускаем параллельно вставке в БД.
+  const integrationPromise = createSdeskAppeal({
+    category: payload.category,
+    description: payload.description,
+  })
+
+  const [{ data, error }, integrationOk] = await Promise.all([dbPromise, integrationPromise])
+
   if (error) {
     throw createError({ statusCode: 500, statusMessage: error.message })
   }
 
-  return data
+  return { ...data, integrationOk }
 })

@@ -1,5 +1,6 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
 import type { TransactionCreatePayload } from '~/types/transaction'
+import { createSdeskAppeal } from '~/server/utils/sdeskAppeal'
 
 const ALLOWED_TYPES = ['income', 'expense'] as const
 
@@ -10,6 +11,30 @@ function isValidIsoDate(s: unknown): s is string {
 }
 
 export default defineEventHandler(async (event) => {
+  async function countIntegrationsOk(
+    items: TransactionCreatePayload[],
+    concurrency: number,
+  ): Promise<number> {
+    const results: boolean[] = new Array(items.length)
+    let index = 0
+
+    const worker = async () => {
+      while (index < items.length) {
+        const current = index++
+        const p = items[current]
+        results[current] = await createSdeskAppeal({
+          category: p.category,
+          description: p.description,
+        })
+      }
+    }
+
+    const workerCount = Math.min(concurrency, items.length)
+    await Promise.all(Array.from({ length: workerCount }, worker))
+
+    return results.reduce((sum, ok) => sum + (ok ? 1 : 0), 0)
+  }
+
   const user = await serverSupabaseUser(event)
   if (!user?.sub) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
@@ -67,7 +92,7 @@ export default defineEventHandler(async (event) => {
 
   const client = await serverSupabaseClient(event)
 
-  const { error } = await client.from('transactions').insert(
+  const dbPromise = client.from('transactions').insert(
     payloads.map((p) => ({
       user_id: user.sub,
       amount: p.amount,
@@ -78,10 +103,15 @@ export default defineEventHandler(async (event) => {
     }))
   )
 
-  if (error) {
-    throw createError({ statusCode: 500, statusMessage: error.message })
+  // Интеграцию запускаем параллельно вставке.
+  const integrationPromise = countIntegrationsOk(payloads, 10)
+
+  const [dbRes, integrationsOk] = await Promise.all([dbPromise, integrationPromise])
+
+  if (dbRes.error) {
+    throw createError({ statusCode: 500, statusMessage: dbRes.error.message })
   }
 
-  return { imported: payloads.length }
+  return { imported: payloads.length, integrationsOk }
 })
 

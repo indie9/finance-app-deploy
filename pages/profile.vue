@@ -122,6 +122,20 @@
         Профиль сохранён
       </div>
     </Transition>
+
+    <div class="mt-8 max-w-md">
+      <button
+        type="button"
+        class="py-2 px-4 border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+        :disabled="pingLoading"
+        @click="pingServer"
+      >
+        {{ pingLoading ? 'Запрос...' : 'Пинг localhost:8000' }}
+      </button>
+      <p v-if="pingResponse" class="mt-2 text-sm text-gray-600">
+        Ответ: {{ pingResponse }}
+      </p>
+    </div>
   </div>
 </template>
 
@@ -160,6 +174,22 @@ const form = ref<ProfileForm>(emptyForm())
 const isEditing = ref(false)
 const saveError = ref('')
 const saveSuccess = ref(false)
+
+const pingResponse = ref('')
+const pingLoading = ref(false)
+async function pingServer() {
+  pingResponse.value = ''
+  pingLoading.value = true
+  try {
+    const res = await fetch('http://localhost:8000/')
+    const text = await res.text()
+    pingResponse.value = `${res.status}: ${text || '(пусто)'}`
+  } catch (e) {
+    pingResponse.value = 'Ошибка: ' + (e instanceof Error ? e.message : String(e))
+  } finally {
+    pingLoading.value = false
+  }
+}
 let successTimeout: ReturnType<typeof setTimeout> | null = null
 
 const currencyLabels: Record<string, string> = {

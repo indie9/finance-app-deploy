@@ -39,6 +39,19 @@
         </div>
       </div>
     </header>
+    <div class="alerts" aria-live="polite" aria-relevant="additions removals">
+      <transition-group name="alert" tag="div" class="alerts__list">
+        <div
+          v-for="a in alerts"
+          :key="a.id"
+          class="alert"
+          :class="`alert--${a.type}`"
+          role="status"
+        >
+          {{ a.message }}
+        </div>
+      </transition-group>
+    </div>
     <main class="main">
       <NuxtPage />
     </main>
@@ -50,12 +63,14 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { transactionsQueryKey } from '~/composables/useTransactions'
 import { budgetsQueryKey, categoriesQueryKey } from '~/composables/useBudgets'
 import { profileQueryKey, useProfileQuery } from '~/composables/useProfile'
+import { useAppAlerts } from '~/composables/useAppAlerts'
 
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 const queryClient = useQueryClient()
 
 const { data: profile } = useProfileQuery()
+const { alerts } = useAppAlerts()
 
 const displayName = computed(() => {
   if (profile.value?.full_name) return profile.value.full_name
@@ -221,4 +236,60 @@ const handleLogout = async () => {
   display: flex;
   flex-direction: column;
 }
+.alerts {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.alerts__list {
+  display: contents;
+}
+
+.alert {
+  pointer-events: none;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  font-size: 0.9rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  max-width: 26rem;
+}
+
+.alert--success {
+  background: rgba(240, 253, 244, 0.98);
+  border-color: rgba(187, 247, 208, 0.95);
+  color: #166534;
+}
+
+.alert--error {
+  background: rgba(254, 242, 242, 0.98);
+  border-color: rgba(254, 202, 202, 0.95);
+  color: #b91c1c;
+}
+
+.alert--info {
+  background: rgba(239, 246, 255, 0.98);
+  border-color: rgba(191, 219, 254, 0.95);
+  color: #1d4ed8;
+}
+
+.alert-enter-active,
+.alert-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.alert-enter-from,
+.alert-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
 </style>

@@ -135,6 +135,7 @@
 import FileUploader from '~/components/FileUploader.vue'
 import { parseTransactionsCsvFile } from '~/utils/transactionsCsv'
 import type { Transaction, TransactionCreatePayload } from '~/types/transaction'
+import { useAppAlerts } from '~/composables/useAppAlerts'
 
 const props = defineProps<{
   modelValue: boolean
@@ -154,6 +155,7 @@ watch(
 )
 
 const uploaderKey = ref(0)
+const { pushAlert } = useAppAlerts()
 
 function resetModalState() {
   parseStatus.value = 'idle'
@@ -315,10 +317,17 @@ async function importAll() {
     .map((r) => r.txCreate as TransactionCreatePayload)
 
   try {
-    await $fetch('/api/transactions/batch', {
+    const res = await $fetch<{ imported: number; integrationsOk?: number }>('/api/transactions/batch', {
       method: 'POST',
       body: { transactions: payload },
     })
+
+    if ((res.integrationsOk ?? 0) > 0) {
+      pushAlert({
+        type: 'success',
+        message: 'Интеграция внешней системы успешно выполнена.',
+      })
+    }
 
     resetModalState()
     emit('import-success')
