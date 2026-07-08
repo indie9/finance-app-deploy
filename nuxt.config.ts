@@ -12,11 +12,21 @@ export default defineNuxtConfig({
   imports: {
     dirs: ['stores']
   },
+  runtimeConfig: {
+    // Серверный ключ: переопределяется NUXT_SUPABASE_SERVICE_KEY в runtime (Amvera/Docker).
+    supabase: {
+      serviceKey: '',
+    },
+    public: {
+      supabase: {
+        url: '',
+        key: '',
+      },
+    },
+  },
   supabase: {
     redirect: false,
-    // ЯВНО пробрасываем значения из env
-    url: process.env.SUPABASE_URL,
-    key: process.env.SUPABASE_ANON_KEY,
-    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY
-  }
+    // url/key/serviceKey не задаём через process.env — иначе на Amvera
+    // при сборке без env они запекаются как undefined в билд.
+  },
 })

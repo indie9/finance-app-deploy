@@ -5,10 +5,13 @@ meta:
     version: "24"
 
 build:
-  additionalCommands: npm run build
+  additionalCommands: NODE_ENV=production npm run build
   artifacts:
-    "*": /
+    ".output": /
+    "node_modules": /
+    "package.json": /
+    "package-lock.json": /
 
 run:
-  command: npm run start
+  command: node .output/server/index.mjs
   containerPort: 3000
