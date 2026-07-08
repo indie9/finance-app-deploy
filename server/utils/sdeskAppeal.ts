@@ -71,28 +71,21 @@ const SDESK_DEBUG = process.env.SDESK_DEBUG === 'true'
 const SDESK_TIMEOUT_MS = Number(process.env.SDESK_TIMEOUT_MS ?? 30_000)
 const SDESK_LOG_BODY_MAX = 2000
 const SDESK_PROBE_OUTBOUND = process.env.SDESK_PROBE_OUTBOUND !== 'false'
-// httpbin принимает POST и возвращает echo тела — удобно для проверки исходящих POST с Vercel.
-const SDESK_PROBE_URL = process.env.SDESK_PROBE_URL ?? 'https://httpbin.org/post'
+const SDESK_PROBE_URL = process.env.SDESK_PROBE_URL ?? 'https://ya.ru'
 
-async function probeOutboundPost(requestId: string): Promise<void> {
+async function probeOutboundGet(requestId: string): Promise<void> {
   const startedAt = Date.now()
-  const probeBody = { probe: true, source: 'finance-ai-nuxt', requestId }
 
   console.info('[outbound-probe] start', {
     requestId,
-    method: 'POST',
+    method: 'GET',
     url: SDESK_PROBE_URL,
     urlParts: parseUrlForLog(SDESK_PROBE_URL),
-    body: probeBody,
     startedAt: new Date(startedAt).toISOString(),
   })
 
   try {
-    const res = await fetch(SDESK_PROBE_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(probeBody),
-    })
+    const res = await fetch(SDESK_PROBE_URL, { method: 'GET' })
 
     const durationMs = Date.now() - startedAt
     let responseBody = ''
@@ -164,7 +157,7 @@ export async function createSdeskAppeal(params: {
 
   console.info('[sdesk] create_appeal start', requestLog)
 
-  const probePromise = SDESK_PROBE_OUTBOUND ? probeOutboundPost(requestId) : Promise.resolve()
+  const probePromise = SDESK_PROBE_OUTBOUND ? probeOutboundGet(requestId) : Promise.resolve()
 
   try {
     timeoutId = setTimeout(() => {
