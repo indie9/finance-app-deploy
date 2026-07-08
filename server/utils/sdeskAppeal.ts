@@ -68,11 +68,31 @@ const SDESK_CREATE_APPEAL_URL =
   `https://sd64898.sdeskdev.kck.ru/integration-server/hooks/sdesk/create_appeal?token=${encodeURIComponent(SDESK_TOKEN)}`
 
 const SDESK_DEBUG = process.env.SDESK_DEBUG === 'true'
+const SDESK_TLS_INSECURE = process.env.SDESK_TLS_INSECURE === 'true'
 const SDESK_TIMEOUT_MS = Number(process.env.SDESK_TIMEOUT_MS ?? 30_000)
 const SDESK_LOG_BODY_MAX = 2000
 const SDESK_PROBE_OUTBOUND = process.env.SDESK_PROBE_OUTBOUND !== 'false'
 const SDESK_PROBE_URL =
   process.env.SDESK_PROBE_URL ?? 'https://restful-booker.herokuapp.com/booking'
+
+async function fetchSdesk(url: string, init: RequestInit): Promise<Response> {
+  if (!SDESK_TLS_INSECURE) {
+    return fetch(url, init)
+  }
+
+  const previous = process.env.NODE_TLS_REJECT_UNAUTHORIZED
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+
+  try {
+    return await fetch(url, init)
+  } finally {
+    if (previous === undefined) {
+      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED
+    } else {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = previous
+    }
+  }
+}
 
 const SDESK_PROBE_BODY = {
   firstname: 'Jim',
@@ -168,12 +188,17 @@ export async function createSdeskAppeal(params: {
     body: requestBody,
     bodyBytes: Buffer.byteLength(JSON.stringify(requestBody), 'utf8'),
     timeoutMs,
+    tlsInsecure: SDESK_TLS_INSECURE,
     nodeVersion: process.version,
     pid: process.pid,
     startedAt: new Date(startedAt).toISOString(),
   }
 
   console.info('[sdesk] create_appeal start', requestLog)
+
+  if (SDESK_TLS_INSECURE) {
+    console.warn('[sdesk] TLS verification disabled for SDESK requests (SDESK_TLS_INSECURE=true)')
+  }
 
   const probePromise = SDESK_PROBE_OUTBOUND ? probeOutboundPost(requestId) : Promise.resolve()
 
@@ -183,7 +208,7 @@ export async function createSdeskAppeal(params: {
       controller.abort()
     }, timeoutMs)
 
-    const res = await fetch(SDESK_CREATE_APPEAL_URL, {
+    const res = await fetchSdesk(SDESK_CREATE_APPEAL_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(requestBody),
@@ -237,6 +262,7 @@ export async function createSdeskAppeal(params: {
       phase: 'error',
       durationMs,
       reason: timedOut ? 'timeout' : 'network_or_fetch_error',
+      tlsInsecure: SDESK_TLS_INSECURE,
       abortedByTimeout,
       signalAborted: controller.signal.aborted,
       timeoutMs: timedOut ? timeoutMs : undefined,
