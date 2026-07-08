@@ -71,21 +71,39 @@ const SDESK_DEBUG = process.env.SDESK_DEBUG === 'true'
 const SDESK_TIMEOUT_MS = Number(process.env.SDESK_TIMEOUT_MS ?? 30_000)
 const SDESK_LOG_BODY_MAX = 2000
 const SDESK_PROBE_OUTBOUND = process.env.SDESK_PROBE_OUTBOUND !== 'false'
-const SDESK_PROBE_URL = process.env.SDESK_PROBE_URL ?? 'https://ya.ru'
+const SDESK_PROBE_URL =
+  process.env.SDESK_PROBE_URL ?? 'https://restful-booker.herokuapp.com/booking'
 
-async function probeOutboundGet(requestId: string): Promise<void> {
+const SDESK_PROBE_BODY = {
+  firstname: 'Jim',
+  lastname: 'Brown',
+  totalprice: 111,
+  depositpaid: true,
+  bookingdates: {
+    checkin: '2018-01-01',
+    checkout: '2019-01-01',
+  },
+  additionalneeds: 'Breakfast',
+}
+
+async function probeOutboundPost(requestId: string): Promise<void> {
   const startedAt = Date.now()
 
   console.info('[outbound-probe] start', {
     requestId,
-    method: 'GET',
+    method: 'POST',
     url: SDESK_PROBE_URL,
     urlParts: parseUrlForLog(SDESK_PROBE_URL),
+    body: SDESK_PROBE_BODY,
     startedAt: new Date(startedAt).toISOString(),
   })
 
   try {
-    const res = await fetch(SDESK_PROBE_URL, { method: 'GET' })
+    const res = await fetch(SDESK_PROBE_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(SDESK_PROBE_BODY),
+    })
 
     const durationMs = Date.now() - startedAt
     let responseBody = ''
@@ -157,7 +175,7 @@ export async function createSdeskAppeal(params: {
 
   console.info('[sdesk] create_appeal start', requestLog)
 
-  const probePromise = SDESK_PROBE_OUTBOUND ? probeOutboundGet(requestId) : Promise.resolve()
+  const probePromise = SDESK_PROBE_OUTBOUND ? probeOutboundPost(requestId) : Promise.resolve()
 
   try {
     timeoutId = setTimeout(() => {
