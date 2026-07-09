@@ -1,10 +1,6 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
-import type { TransactionCreatePayload } from '~/types/transaction'
 import { createSdeskAppeal } from '~/server/utils/sdeskAppeal'
-
-const ALLOWED_TYPES = ['income', 'expense'] as const
-
-const sanitize = (value: unknown) => String(value ?? '').trim()
+import { parseTransactionCreateBody } from '~/server/utils/parseTransactionCreateBody'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -13,41 +9,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody<Record<string, unknown>>(event)
-
-  const amount = Number(body?.amount)
-  const type = sanitize(body?.type) as 'income' | 'expense'
-  const category = sanitize(body?.category)
-  const date = body?.date != null ? sanitize(String(body.date)) : new Date().toISOString()
-  const description = sanitize(body?.description) ?? ''
-
-  if (!(amount > 0) || !Number.isFinite(amount)) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Сумма должна быть больше нуля.'
-    })
-  }
-
-  if (!ALLOWED_TYPES.includes(type)) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Тип должен быть income или expense.'
-    })
-  }
-
-  if (!category) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Укажите категорию.'
-    })
-  }
-
-  const payload: TransactionCreatePayload = {
-    amount,
-    type,
-    category,
-    date: date || undefined,
-    description: description || undefined
-  }
+  const payload = parseTransactionCreateBody(body)
 
   const client = await serverSupabaseClient(event)
   const dbPromise = client

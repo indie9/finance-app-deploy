@@ -9,7 +9,6 @@
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        @click.self="close"
         @keydown.escape="close"
       >
         <div class="modal-backdrop" />
